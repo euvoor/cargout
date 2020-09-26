@@ -3,6 +3,7 @@ use std::io;
 use tracing::trace;
 use console::style;
 use futures::future::join_all;
+use tokio::sync::mpsc::unbounded_channel;
 
 pub mod cli;
 pub use cli::cli;
@@ -20,8 +21,40 @@ async fn main() -> io::Result<()> {
 
     let matches = cli();
 
-    if let Ok(deps) = get_deps(matches) {
+    if let Ok(deps) = get_deps(&matches) {
         let mut tasks = vec![];
+        let (tx, mut rx) = unbounded_channel();
+        let (out_tx, mut out_rx) = unbounded_channel();
+
+        tokio::spawn(async move {
+            while let Some(line) = out_rx.recv().await {
+                if line == "/end" {
+                    break
+                }
+
+                println!("{}", line);
+            }
+        });
+
+        let arg_all = matches.is_present("all");
+
+        tokio::spawn(async move {
+            let mut lines = vec![];
+
+            while let Some(line) = rx.recv().await {
+                if line == "/end" {
+                    break
+                } else {
+                    lines.push(line);
+                }
+            }
+
+            if arg_all {
+                for line in lines {
+                    println!("{}", line);
+                }
+            }
+        });
 
         for (dep, value) in deps.as_table().unwrap() {
             let dep = dep.to_string();
@@ -33,17 +66,16 @@ async fn main() -> io::Result<()> {
                 version = value.as_str().unwrap().to_string();
             }
 
+            let tx = tx.clone();
+            let out_tx = out_tx.clone();
+
             let task = tokio::spawn(async move {
                 let new_version = get_new_version(dep.clone()).await.unwrap();
 
                 if version == new_version {
-                    println!("{:20} {:10} {:10}", dep, version, new_version);
+                    tx.send(format!("{:20} {:10} {:10}", dep, version, new_version)).unwrap();
                 } else {
-                    println!(
-                        "{:20} {:10} {:10}",
-                        style(dep).red(),
-                        style(version).red(), style(new_version).red()
-                    );
+                    out_tx.send(format!("{:20} {:10} {:10}", style(dep).red(), style(version).red(), style(new_version).red())).unwrap();
                 }
             });
 
@@ -51,6 +83,8 @@ async fn main() -> io::Result<()> {
         }
 
         join_all(tasks).await;
+
+        tx.send(String::from("/end")).unwrap();
     }
 
     trace!("[ FINISHED ]");

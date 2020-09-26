@@ -14,7 +14,7 @@ use serde_json::Value as JsonValue;
 pub async fn get_new_version(dep: String) -> io::Result<String> {
     let crate_url = format!("https://crates.io/api/v1/crates/{}", dep);
 
-    trace!("fetching {} html", crate_url);
+    trace!("[ FETCH STARTED ] {}", crate_url);
 
     let data = Client::builder()
         .build().unwrap()
@@ -25,10 +25,12 @@ pub async fn get_new_version(dep: String) -> io::Result<String> {
 
     let data: JsonValue = serde_json::from_str(&data)?;
 
+    trace!("[ FETCH END ] {}", crate_url);
+
     Ok(data["versions"][0]["num"].as_str().unwrap().to_string())
 }
 
-pub fn get_deps(matches: ArgMatches) -> io::Result<TomlValue> {
+pub fn get_deps(matches: &ArgMatches) -> io::Result<TomlValue> {
     if let Some(file) = matches.value_of("file") {
         let path = Path::new(file).join("Cargo.toml");
 

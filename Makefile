@@ -4,4 +4,4 @@ watch:
 		--quiet \
 		--watch \
 		--shell \
-			"cargo run --quiet --color always"
+			"cargo run --quiet --color always -- --file /data/projects/websocket-rs"

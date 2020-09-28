@@ -1,11 +1,11 @@
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::path::Path;
+use std::path::PathBuf;
+use std::env::current_dir;
 
 use reqwest::header::USER_AGENT;
 use reqwest::Client;
-use toml::value::Table;
 use toml::Value as TomlValue;
 use tracing::{ error, trace };
 use clap::ArgMatches;
@@ -31,17 +31,21 @@ pub async fn get_new_version(dep: String) -> io::Result<String> {
 }
 
 pub fn get_deps(matches: &ArgMatches) -> io::Result<TomlValue> {
-    if let Some(file) = matches.value_of("file") {
-        let path = Path::new(file).join("Cargo.toml");
+    let mut path_buf;
 
-        if ! path.exists() {
-            error!("{:?} does not exists!", path);
-        }
+    if let Some(file) = matches.value_of("file") {
+        path_buf = PathBuf::from(file);
+    } else {
+        path_buf = current_dir().unwrap();
+    }
+
+    path_buf.push("Cargo.toml");
+
+    if path_buf.exists() {
+        let mut file = File::open(path_buf)?;
+        let mut buf = String::new();
 
         trace!("[ CARGO PARSER ] reading Cargo.toml file");
-
-        let mut file = File::open(path)?;
-        let mut buf = String::new();
 
         file.read_to_string(&mut buf)?;
         let value = buf.parse::<TomlValue>()?;
@@ -49,5 +53,6 @@ pub fn get_deps(matches: &ArgMatches) -> io::Result<TomlValue> {
         return Ok(value["dependencies"].clone())
     }
 
-    panic!("No file!");
+    error!("{:?} does not exists!", path_buf);
+    panic!();
 }

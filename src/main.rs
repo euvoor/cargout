@@ -1,6 +1,6 @@
 use std::io;
 
-use tracing::{ trace, error };
+use tracing::trace;
 use console::style;
 use futures::future::join_all;
 use tokio::sync::mpsc::unbounded_channel;
@@ -66,7 +66,7 @@ async fn main() -> io::Result<()> {
 
         for (dep, value) in deps.as_table().unwrap() {
             let dep = dep.to_string();
-            let mut version = String::new();
+            let version;
 
             if value.is_table() {
                 version = value.as_table().unwrap()["version"].as_str().unwrap().to_string();

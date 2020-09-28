@@ -1,9 +1,11 @@
 use std::io;
 
-use tracing::trace;
+use tracing::{ trace, error };
 use console::style;
 use futures::future::join_all;
 use tokio::sync::mpsc::unbounded_channel;
+use tracing_subscriber::{ fmt, EnvFilter };
+use tracing_subscriber::prelude::*;
 
 pub mod cli;
 pub use cli::cli;
@@ -13,8 +15,14 @@ use cargout::get_new_version;
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    tracing_subscriber::fmt()
-        //.with_env_filter("cargout=trace")
+    let fmt_layer = fmt::layer().with_target(false);
+    let filter = EnvFilter::try_from_default_env()
+        .or_else(|_| EnvFilter::try_new("error"))
+        .unwrap();
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt_layer)
         .init();
 
     trace!("[ STARTED ]");
